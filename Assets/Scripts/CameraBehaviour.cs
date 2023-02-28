@@ -60,10 +60,10 @@ public class CameraBehaviour : MonoBehaviour
         );
 
         // Reset camera
-        if (Input.GetKeyDown(KeyCode.R)) {
-            Debug.Log("Resetting");
-            transform.position = m_DefaultPosition.position;
-            m_Camera.orthographicSize = m_DefaultZoom;
-        }
+        //if (Input.GetKeyDown(KeyCode.R)) {
+        //    Debug.Log("Resetting");
+        //    transform.position = m_DefaultPosition.position;
+        //    m_Camera.orthographicSize = m_DefaultZoom;
+        //}
     }
 }

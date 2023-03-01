@@ -7,10 +7,12 @@ public class Planet : MonoBehaviour
     private float m_distanceFromGrav;
     private int m_minOrbitPoints = 50;
     private LineRenderer m_OrbitRenderer;
+    private float m_OrbitRendererDefault;
     private float m_orbitSpeed;
-    private List<Planet> m_Moons = new List<Planet>();
+    //private List<Planet> m_Moons = new List<Planet>();
 
     [Header("Planet Data")]
+    private bool m_hasBackstory = false;
     public PlanetType m_Type;
     public string m_Identifier;
     public string m_Population;
@@ -25,11 +27,23 @@ public class Planet : MonoBehaviour
     [SerializeField] private float m_barrenPopChance;
 
     [Header("Planet Parts")]
+    private Vector3 m_SunPos = Vector3.zero;
     public List<Sprite> m_Atmospheres = new List<Sprite>();
     public List<Sprite> m_Landmasses = new List<Sprite>();
     public List<Sprite> m_Craters = new List<Sprite>();
     public List<Sprite> m_Lights = new List<Sprite>();
-    [SerializeField] private Collider2D m_Collider;
+    [SerializeField] private int m_maxMoons;
+    [Range(0f, 1f)]
+    [SerializeField] private float m_moonChance;
+    [Range(0f, 15f)]
+    [SerializeField] private float m_minMoonD;
+    [Range(0f, 15f)]
+    [SerializeField] private float m_maxMoonD;
+    [Range(0f, 1f)]
+    [SerializeField] private float m_minMoonScale;
+    [Range(0f, 1f)]
+    [SerializeField] private float m_maxMoonScale;
+    [SerializeField] private Collider2D m_PlanetCollider;
 
     [Header("Planet Visuals")]
     [SerializeField] private GameObject m_CentreMass;
@@ -40,8 +54,13 @@ public class Planet : MonoBehaviour
     [SerializeField] private SpriteRenderer m_Landmass;
     [SerializeField] private SpriteRenderer m_Atmosphere;
     [SerializeField] private SpriteRenderer m_Light;
-    
+    [SerializeField] private Color m_HoveredColor;
+    [SerializeField] private Color m_ClickedColor;
+    private Color m_NormalColor;
+
     [Space(10)]
+    [SerializeField] private float m_haloAlpha;
+    [SerializeField] private float m_atmAlpha;
     [Range(0f, 360f)]
     [SerializeField] private float m_minHAtm;
     [Range(0f, 360f)]
@@ -69,6 +88,7 @@ public class Planet : MonoBehaviour
 
     [Header("Animations")]
     [SerializeField] private float m_rotSpeed;
+    [SerializeField] private int m_moonOrbitFactor;
     [SerializeField] private float m_minOrbitSpeed;
     [SerializeField] private float m_maxOrbitSpeed;
     [SerializeField] private float m_aOffsetLight;
@@ -78,6 +98,9 @@ public class Planet : MonoBehaviour
     private void Awake ()
     {
         m_OrbitRenderer = GetComponent<LineRenderer>();
+        m_OrbitRendererDefault = m_OrbitRenderer.startWidth;
+        m_PlanetCollider.enabled = false;
+        m_SunPos = FindObjectOfType<Sun>().transform.position;
     }
 
     // Update is called once per frame
@@ -85,11 +108,18 @@ public class Planet : MonoBehaviour
     {
         // Here we can animate the planet to rotate around itself/orbit and move the planet bits!
         transform.Rotate(0f, 0f, m_orbitSpeed * Time.deltaTime);
+
         if (m_Landmass)
-            m_Landmass.transform.Rotate(0f, 0f, m_rotSpeed/3 * Time.deltaTime);
+            m_Landmass.transform.Rotate(0f, 0f, -m_rotSpeed / 2 * Time.deltaTime);
         
         if (m_Atmosphere)
             m_Atmosphere.transform.Rotate(0f, 0f, m_rotSpeed * Time.deltaTime);
+
+        // Only moons need to have their light reoriented all the time
+        // To do this, we need to rotate the body the opposite amount of the gameobject
+        // So that is is always facing the sun
+        if (m_Type == PlanetType.Moon)
+            m_CentreMass.transform.Rotate(0f, 0f, -m_orbitSpeed * Time.deltaTime);
     }
 
     // Generate a random planet and its elements depending on its type
@@ -100,7 +130,7 @@ public class Planet : MonoBehaviour
         m_Type = type;
         float posX = radius * Mathf.Cos(angle);
         float posY = radius * Mathf.Sin(angle);
-        m_CentreMass.transform.position = new Vector3(posX, posY, m_zOffset);
+        m_CentreMass.transform.localPosition = new Vector3(posX, posY, m_zOffset);
         m_CentreMass.transform.localScale = new Vector3(scale, scale, scale);
 
         // Generate the planet's sprites
@@ -115,23 +145,24 @@ public class Planet : MonoBehaviour
             land = m_Landmasses[Random.Range(0, m_Landmasses.Count)];
 
         // Set planet visuals
-        // Body/Halo
+        // Body/Ring/Halo
         Color bCol = GenerateColor(m_Type);
         m_Body.color = bCol;
-        m_Halo.color = bCol;
-
-        // Ring
         if (m_Type == PlanetType.GasGiant)
             m_Ring.color = bCol;
         else
             m_Ring.gameObject.SetActive(false);
+        bCol.a = m_haloAlpha;
+        // Make halo slightly more transparent
+        m_Halo.color = bCol;
+        m_NormalColor = bCol;
+        
 
         // Atmosphere
         if (atm) {
             m_Atmosphere.sprite = atm;
             Color aCol = GenerateColor();
-            //m_Halo.color = aCol;
-            aCol.a = 0.5f;
+            aCol.a = m_atmAlpha;
             m_Atmosphere.color = aCol;
         } else
             m_Atmosphere.gameObject.SetActive(false);
@@ -146,15 +177,43 @@ public class Planet : MonoBehaviour
         } else
             m_Landmass.gameObject.SetActive(false);
 
-        // Draw an orbit that the planet will sit on
-        DrawOrbit(radius);
+        // Draw an orbit that the planet will sit on (if not a moon)
+        if (m_Type != PlanetType.Moon)
+            DrawOrbit(radius);
 
-        // Decide an orbit speed and random direction
+        // Decide an orbit speed and random direction (moons orbit faster)
         int randomSign = Random.Range(0, 2) == 0 ? -1 : 1;
-        m_orbitSpeed = Random.Range(m_minOrbitSpeed, m_maxOrbitSpeed) * randomSign;
+        int factor = m_Type == PlanetType.Moon ? m_moonOrbitFactor : 1;
+        m_orbitSpeed = Random.Range(m_minOrbitSpeed * factor, m_maxOrbitSpeed * factor) * randomSign;
 
         // Orient the light sprite to face the sun
         OrientLight();
+
+        // Generate moons only if not a moon
+        if (m_Type == PlanetType.Moon)
+            return;
+
+        // Generate a random number of moons
+        float c = Random.Range(0f, 1f);
+        if (c <= m_moonChance) {
+            int nb = Random.Range(0, m_maxMoons);
+
+            for (int i = 0; i < nb; i++)
+                GenerateMoon();
+        }
+    }
+
+    // Generate a moon
+    private void GenerateMoon ()
+    {
+        GameObject temp = SystemGenerator.GetInstance().GetPlanetTemplate();
+
+        float radius = Random.Range(m_minMoonD, m_maxMoonD);
+        float angle = Random.Range(0f, Mathf.PI * 2f);
+        float scale = Random.Range(m_minMoonScale, m_maxMoonScale);
+
+        Planet p = Instantiate(temp, m_CentreMass.transform).GetComponent<Planet>();
+        p.GeneratePlanet(radius, angle, scale, PlanetType.Moon);
     }
 
     // Generate a random color with fixed saturation and value
@@ -193,10 +252,9 @@ public class Planet : MonoBehaviour
     {
         m_Light.sprite = m_Lights[Random.Range(0, m_Lights.Count)];
 
-        Vector2 direction = transform.position - m_Light.transform.position;
+        Vector2 direction = m_SunPos - m_Light.transform.position;
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
         m_Light.transform.rotation = Quaternion.AngleAxis(angle - m_aOffsetLight, Vector3.forward);
-        direction = transform.position - m_Body.transform.position;
         angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
         m_Body.transform.rotation = Quaternion.AngleAxis(angle - m_aOffsetBody, Vector3.forward);
     }
@@ -204,6 +262,9 @@ public class Planet : MonoBehaviour
     // Generate planet name, population count, name, class...
     public void GenerateBackstory ()
     {
+        // Set collider to active so that user can interact with planet data
+        m_PlanetCollider.enabled = true;
+
         // Generate Planet name
         m_Identifier = m_PlanetNames1[Random.Range(0, m_PlanetNames1.Count)]
             + m_PlanetNames2[Random.Range(0, m_PlanetNames2.Count)]
@@ -223,21 +284,53 @@ public class Planet : MonoBehaviour
 
         // Select random System Faction
         List<Faction> factions = SystemGenerator.GetInstance().GetSystemFactions();
-        m_Faction = factions[Random.Range(0, factions.Count)];
-        m_OrbitRenderer.startColor = m_Faction.color;
-        m_OrbitRenderer.endColor = m_Faction.color;
-        m_OrbitRenderer.startWidth = 15f;
-        m_OrbitRenderer.endWidth = 15f;
+        if (factions.Count > 0) {
+            m_Faction = factions[Random.Range(0, factions.Count)];
+            m_OrbitRenderer.startColor = m_Faction.color;
+            m_OrbitRenderer.endColor = m_Faction.color;
+        }
+
+        m_hasBackstory = true;
     }
 
-    private void OnMouseEnter ()
+    // Show controlled orbits by faction color by increasing the line renederer width
+    public void ToggleOrbitControl (bool toggleOn)
     {
-        Debug.Log("testing: entered");
+        if (toggleOn && m_hasBackstory) {
+            m_OrbitRenderer.startWidth = SystemGenerator.GetInstance().GetMinStep();
+            m_OrbitRenderer.endWidth = SystemGenerator.GetInstance().GetMinStep();
+        } else {
+            m_OrbitRenderer.startWidth = m_OrbitRendererDefault;
+            m_OrbitRenderer.endWidth = m_OrbitRendererDefault;
+        }
     }
 
-    private void OnMouseExit ()
+
+    // Fire an event when the collider (on the Body child) is hovered by the mouse
+    public void OnHoverEnter ()
     {
-        Debug.Log("testing: exited");
+        m_Halo.color = m_HoveredColor;
+    }
+
+    // Fire an event when the collider (on the Body child) is no longer hovered by the mouse
+    public void OnHoverExit ()
+    {
+        m_Halo.color = m_NormalColor;
+    }
+
+    // Fire an event when the collider (on the Body child) is clicked down
+    public void OnClickDown ()
+    {
+        m_Halo.color = m_ClickedColor;
+
+        // Populate and toggle the planet data UI block
+        SystemGenerator.GetInstance().TogglePlanetData(this);
+    }
+
+    // Fire an event when the collider (on the Body child) is clicked up
+    public void OnClickUp ()
+    {
+        m_Halo.color = m_HoveredColor;
     }
 
     // GETTERS AND SETTERS

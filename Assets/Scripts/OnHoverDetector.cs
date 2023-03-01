@@ -4,13 +4,39 @@ using UnityEngine;
 
 public class OnHoverDetector : MonoBehaviour
 {
+    private Planet m_Planet;
+
+    // Awake is called when this object is instantiated
+    private void Awake ()
+    {
+        m_Planet = GetComponentInParent<Planet>();
+
+        if (!m_Planet)
+            Debug.LogWarning("Could not find Planet component on parent(s)");
+    }
+
+    // Mouse events
     private void OnMouseEnter ()
     {
-        Debug.Log("entered");
+        if (m_Planet)
+            m_Planet.OnHoverEnter();
     }
 
     private void OnMouseExit ()
     {
-        Debug.Log("exit");
+        if (m_Planet)
+            m_Planet.OnHoverExit();
+    }
+
+    private void OnMouseDown ()
+    {
+        if (m_Planet)
+            m_Planet.OnClickDown();
+    }
+
+    private void OnMouseUp ()
+    {
+        if (m_Planet)
+            m_Planet.OnClickUp();
     }
 }

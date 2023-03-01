@@ -313,10 +313,10 @@ CircleCollider2D:
   m_Enabled: 1
   m_Density: 1
   m_Material: {fileID: 0}
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_UsedByEffector: 0
   m_UsedByComposite: 0
-  m_Offset: {x: -0.0000009536743, y: 0}
+  m_Offset: {x: 0, y: 0}
   serializedVersion: 2
   m_Radius: 5.12
 --- !u!1 &229372640275962292
@@ -482,7 +482,7 @@ MonoBehaviour:
   - ist
   - us
   - or
-  - art
+  - ar
   - ur
   - ex
   - ox
@@ -490,15 +490,15 @@ MonoBehaviour:
   - al
   m_PlanetNames3:
   - ra
-  - is
+  - isa
   - im
-  - or
+  - ora
+  - ria
+  - ost
   - ix
-  - ox
-  - ix
-  - ux
-  - os
-  - ax
+  - ulis
+  - tisa
+  - axa
   m_ResourceAmt:
   - None
   - Rare
@@ -535,7 +535,13 @@ MonoBehaviour:
   m_Lights:
   - {fileID: 21300000, guid: 02106a852cb6f774f8fa8993ebd16a55, type: 3}
   - {fileID: 21300000, guid: 71f1fdf8646e7164e8baae1995f3b16e, type: 3}
-  m_Collider: {fileID: 0}
+  m_maxMoons: 4
+  m_moonChance: 0.5
+  m_minMoonD: 7.5
+  m_maxMoonD: 10
+  m_minMoonScale: 0.1
+  m_maxMoonScale: 0.2
+  m_PlanetCollider: {fileID: 8356889489220262659}
   m_CentreMass: {fileID: 632671933}
   m_zOffset: -0.01
   m_Halo: {fileID: 5745065607951442756}
@@ -544,6 +550,10 @@ MonoBehaviour:
   m_Landmass: {fileID: 920999722}
   m_Atmosphere: {fileID: 1326143959}
   m_Light: {fileID: 2275371824048505430}
+  m_HoveredColor: {r: 0, g: 1, b: 0.64705884, a: 1}
+  m_ClickedColor: {r: 1, g: 0.25616568, b: 0, a: 1}
+  m_haloAlpha: 0.4
+  m_atmAlpha: 0.25
   m_minHAtm: 150
   m_maxHAtm: 250
   m_minH: 0
@@ -557,6 +567,7 @@ MonoBehaviour:
   m_minVLand: 0.45
   m_maxVLand: 0.65
   m_rotSpeed: 5
+  m_moonOrbitFactor: 10
   m_minOrbitSpeed: 0.3
   m_maxOrbitSpeed: 1
   m_aOffsetLight: -25
@@ -803,7 +814,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_Sprite: {fileID: 21300000, guid: 770521256d98bba498318c8683380ccb, type: 3}
-  m_Color: {r: 0.47843137, g: 0.78431374, b: 0.8784314, a: 0.29803923}
+  m_Color: {r: 0.47843137, g: 0.78431374, b: 0.8784314, a: 0.2}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
